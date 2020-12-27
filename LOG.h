@@ -1,5 +1,5 @@
-#ifndef V4L_CUDA_LOG_H
-#define V4L_CUDA_LOG_H
+#ifndef V4L_LOG_H
+#define V4L_LOG_H
 
 #include <iostream>
 #include <string>
@@ -7,7 +7,9 @@
 #include <cstring>
 #include <ctime>
 #include <initializer_list>
+#include <chrono>
 
+using namespace std::chrono;
 
 template<typename T>
 void log_cout(T t) {
@@ -32,8 +34,7 @@ void log_cerr(T t, Args... args) {
     log_cerr(args...);
 }
 
-
-#define LOG_INFO(...) (log_cout("[INFO]\t[",std::time(nullptr),"]\t",__FILE__,":", __LINE__, ": ", __func__ , ": ", ##__VA_ARGS__, "\n") )
-#define LOG_ERROR(...) (log_cerr("[ERROR]\t[",std::time(nullptr),"]\t",__FILE__,":", __LINE__, ": ", __func__ , ": ", ##__VA_ARGS__, "\n") )
+#define LOG_INFO(...) (log_cout("[INFO]\t[",duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count(),"]\t",__FILE__,":", __LINE__, ": ", __func__ , ": ", ##__VA_ARGS__, "\n") )
+#define LOG_ERROR(...) (log_cerr("[ERROR]\t[",duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count(),"]\t",__FILE__,":", __LINE__, ": ", __func__ , ": ", ##__VA_ARGS__, "\n") )
 
 #endif
