@@ -8,6 +8,14 @@ USB::USB() {
 }
 
 USB::~USB() {
+
+    if (dev_handle != 0)
+    {
+        libusb_release_interface(dev_handle,0);
+        libusb_close(dev_handle);
+        dev_handle = 0;
+    }
+
     libusb_free_device_list(_devs, 1);
     libusb_exit(_ctx);
 }
@@ -98,7 +106,6 @@ void USB::ShowInterfaces(ssize_t dev_num) {
                 epdesc = &interdesc->endpoint[k];
                 cout<<"\t\t\tDescriptor Type: "<<(int)epdesc->bDescriptorType<<"\n";
                 cout<<"\t\t\tEP Address: "<<(int)epdesc->bEndpointAddress<<"\n";
-
             }
         }
 
@@ -108,13 +115,8 @@ void USB::ShowInterfaces(ssize_t dev_num) {
 
 }
 
-int USB::Write(uint16_t vendorID, uint16_t productID,
-               int interface_number, unsigned char endpoint,
-               unsigned char *data, int len) {
-    libusb_device_handle *dev_handle;
-    int r;
-    int actual;
 
+int USB::Connect() {
     dev_handle = libusb_open_device_with_vid_pid(_ctx, vendorID, productID);
 
     if(dev_handle == NULL)
@@ -128,30 +130,76 @@ int USB::Write(uint16_t vendorID, uint16_t productID,
             LOG_INFO("Kernel Driver Detached!");
     }
 
-    r = libusb_claim_interface(dev_handle, interface_number);
+}
+
+
+void USB::SetVidPid(uint16_t vID, uint16_t pID) {
+vendorID = vID;
+productID = pID;
+}
+
+int USB::ClaimInterface(int interface_number) {
+
+    int r = libusb_claim_interface(dev_handle, interface_number);
     if(r < 0) {
         LOG_ERROR("Cannot Claim Interface");
-        return 1;
+        return r;
     }
+
+    return 0;
+}
+
+int USB::ReleaseInterface(int interface_number) {
+
+    int r = libusb_release_interface(dev_handle, 0);
+    if(r!=0) {
+        LOG_ERROR("Cannot Release Interface");
+        return r;
+    }
+    LOG_INFO("Released Interface");
+    return 0;
+}
+
+int USB::ReadISO(unsigned char endpoint) {
+
+    struct libusb_transfer* transfer = libusb_alloc_transfer(512);
+
+    libusb_fill_iso_transfer(transfer, dev_handle, endpoint, isobuf, 940 * 64, 64, callBackISO, NULL, 10000);
+    return libusb_submit_transfer(transfer);
+}
+
+int USB::Write(unsigned char endpoint, unsigned char *data, size_t len) {
+    int r;
+    int actual;
 
     actual = len;
     int curent_index=0;
     r = libusb_bulk_transfer(dev_handle, (endpoint | LIBUSB_ENDPOINT_OUT),
                              &data[curent_index], actual, &actual, 0);
-
     if(r == 0) {
         curent_index +=actual;
-        LOG_INFO("Bytes: ", actual, " Writing Successful!");
     } else {
         LOG_ERROR("Write Error");
     }
-
-    r = libusb_release_interface(dev_handle, 0);
-
-    if(r!=0) {
-        LOG_ERROR("Cannot Release Interface");
-        return 1;
-    }
-    LOG_INFO("Released Interface");
-
 }
+
+/***
+static void iso_callback(struct libusb_transfer *transfer){
+    int i;
+    int buf_index=0;
+    for (i = 0; i < transfer->num_iso_packets; i++) {
+        struct libusb_iso_packet_descriptor *desc =  &transfer->iso_packet_desc[i];
+        unsigned char *pbuf = transfer->buffer + buf_index;
+        buf_index+=desc->length;
+        if (desc->actual_length != 0) {
+            printf("isopacket %d received %d bytes:\n", i, desc->actual_length);
+            print_bytes(pbuf, desc->actual_length);
+        }
+    }
+    libusb_free_transfer(transfer);
+}
+***/
+void USB::SetCallBack(CallBack_t call) {
+    callBackISO = call;
+}
+

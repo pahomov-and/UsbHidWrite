@@ -3,6 +3,9 @@ project(UsbHidWrite)
 
 set(CMAKE_CXX_STANDARD 14)
 
+string(LENGTH "${CMAKE_SOURCE_DIR}/" SOURCE_PATH_SIZE)
+add_definitions("-DSOURCE_PATH_SIZE=${SOURCE_PATH_SIZE}")
+
 include_directories(.)
 
 add_executable(${PROJECT_NAME}
